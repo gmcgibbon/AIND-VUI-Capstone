@@ -95,12 +95,23 @@ def cnn_output_length(input_length, filter_size, border_mode, stride,
 def deep_rnn_model(input_dim, units, recur_layers, output_dim=29):
     """ Build a deep recurrent network for speech
     """
+    def recurrent_layer(prev_layer, name):
+        layer = GRU(units=units,
+                    return_sequences=True,
+                    implementation=2,
+                    name=name
+        )(prev_layer)
+        return BatchNormalization()(layer)
     # Main acoustic input
     input_data = Input(name='the_input', shape=(None, input_dim))
     # TODO: Add recurrent layers, each with batch normalization
-    ...
+    gru_rnn = input_data
+    for i in range(recur_layers):
+        gru_rnn = recurrent_layer(gru_rnn, name="rnn_{}".format(i))
+    # TODO: Add batch normalization
+    bn_rnn = BatchNormalization()(gru_rnn)
     # TODO: Add a TimeDistributed(Dense(output_dim)) layer
-    time_dense = ...
+    time_dense = TimeDistributed(Dense(output_dim))(bn_rnn)
     # Add softmax activation layer
     y_pred = Activation('softmax', name='softmax')(time_dense)
     # Specify the model
