@@ -143,18 +143,60 @@ def bidirectional_rnn_model(input_dim, units, output_dim=29):
     print(model.summary())
     return model
 
-def final_model():
+def final_model(cnn_filters, cnn_kernel_size, cnn_strides, cnn_padding,
+                rnn_units, rnn_dropout, rnn_recurrent_dropout,
+                input_dim=161, output_dim=29):
     """ Build a deep network for speech
     """
+    def output_length(x):
+        return cnn_output_length(
+            x, cnn_kernel_size, cnn_padding, cnn_strides
+        )
     # Main acoustic input
-    input_data = Input(name='the_input', shape=(None, input_dim))
+    inputs = Input(name='input', shape=(None, input_dim))
     # TODO: Specify the layers in your network
-    ...
+    outputs = Conv1D(
+        filters=cnn_filters,
+        kernel_size=cnn_kernel_size,
+        strides=cnn_strides,
+        padding=cnn_padding,
+        activation='relu',
+        name='conv_1d'
+    )(inputs)
+    outputs = BatchNormalization(name='bn_conv_1d')(outputs)
+    outputs = Bidirectional(
+        name='bd_rnn_0',
+        layer=GRU(
+            units=rnn_units,
+            return_sequences=True,
+            implementation=2,
+            name='rnn_0',
+            dropout=rnn_dropout,
+            recurrent_dropout=rnn_recurrent_dropout
+        )
+    )(outputs)
+    outputs = BatchNormalization(name='bn_rnn_0')(outputs)
+    outputs = Bidirectional(
+        name='bd_rnn_1',
+        layer=GRU(
+            units=rnn_units,
+            return_sequences=True,
+            implementation=2,
+            name='rnn_1',
+            dropout=rnn_dropout,
+            recurrent_dropout=rnn_recurrent_dropout
+        )
+    )(outputs)
+    outputs = BatchNormalization(name='bn_rnn_1')(outputs)
+    outputs = TimeDistributed(
+        name='td_dense',
+        layer=Dense(units=output_dim, name='dense')
+    )(outputs)
     # TODO: Add softmax activation layer
-    y_pred = ...
+    outputs = Activation('softmax', name='softmax')(outputs)
     # Specify the model
-    model = Model(inputs=input_data, outputs=y_pred)
+    model = Model(inputs=inputs, outputs=outputs)
     # TODO: Specify model.output_length
-    model.output_length = ...
+    model.output_length = output_length
     print(model.summary())
     return model
