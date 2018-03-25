@@ -145,15 +145,28 @@ def bidirectional_rnn_model(input_dim, units, output_dim=29):
 
 def final_model(cnn_filters, cnn_kernel_size, cnn_strides, cnn_padding,
                 rnn_units, rnn_dropout, rnn_recurrent_dropout,
-                input_dim=161, output_dim=29):
+                rnn_layer_count, input_dim=161, output_dim=29):
     """ Build a deep network for speech
     """
     def output_length(x):
         return cnn_output_length(
             x, cnn_kernel_size, cnn_padding, cnn_strides
         )
+    def rnn_layer(layer, number):
+        layer = Bidirectional(
+            name='bd_rnn_{}'.format(number),
+            layer=GRU(
+                units=rnn_units,
+                return_sequences=True,
+                implementation=2,
+                name='rnn_{}'.format(number),
+                dropout=rnn_dropout,
+                recurrent_dropout=rnn_recurrent_dropout
+            )
+        )(layer)
+        return BatchNormalization(name='bn_rnn_{}'.format(number))(layer)
     # Main acoustic input
-    inputs = Input(name='input', shape=(None, input_dim))
+    inputs = Input(name='the_input', shape=(None, input_dim))
     # TODO: Specify the layers in your network
     outputs = Conv1D(
         filters=cnn_filters,
@@ -164,30 +177,8 @@ def final_model(cnn_filters, cnn_kernel_size, cnn_strides, cnn_padding,
         name='conv_1d'
     )(inputs)
     outputs = BatchNormalization(name='bn_conv_1d')(outputs)
-    outputs = Bidirectional(
-        name='bd_rnn_0',
-        layer=GRU(
-            units=rnn_units,
-            return_sequences=True,
-            implementation=2,
-            name='rnn_0',
-            dropout=rnn_dropout,
-            recurrent_dropout=rnn_recurrent_dropout
-        )
-    )(outputs)
-    outputs = BatchNormalization(name='bn_rnn_0')(outputs)
-    outputs = Bidirectional(
-        name='bd_rnn_1',
-        layer=GRU(
-            units=rnn_units,
-            return_sequences=True,
-            implementation=2,
-            name='rnn_1',
-            dropout=rnn_dropout,
-            recurrent_dropout=rnn_recurrent_dropout
-        )
-    )(outputs)
-    outputs = BatchNormalization(name='bn_rnn_1')(outputs)
+    for i in range(rnn_layer_count):
+        outputs = rnn_layer(number=i, layer=outputs)
     outputs = TimeDistributed(
         name='td_dense',
         layer=Dense(units=output_dim, name='dense')
